@@ -103,7 +103,7 @@ function closeNodeEditor() {
 
 function addManagementStyles() {
   const style = document.createElement('style');
-  style.textContent = `.modal-backdrop{align-items:center;background:rgba(18,35,43,.42);display:flex;inset:0;justify-content:center;position:fixed;z-index:8}.modal-backdrop:not(.open){display:none}.node-modal{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(18,35,43,.2);display:grid;gap:14px;max-width:420px;padding:24px;width:calc(100% - 32px)}.modal-heading{align-items:flex-start;display:flex;justify-content:space-between}.modal-close{background:none;border:0;color:#7f8d94;cursor:pointer;font-size:22px;line-height:1}.node-modal label{color:#66767e;display:grid;font-size:11px;gap:6px}.node-modal input,.node-modal select{border:1px solid #dce5e8;border-radius:6px;color:#25343c;font:12px var(--sans);padding:10px}.modal-actions{align-items:center;display:grid;gap:8px;grid-template-columns:auto 1fr auto auto;margin-top:8px}.delete-node{color:#d76b68}.empty-state{color:#9ca8ad;font-size:12px;padding:25px 0;text-align:center}`;
+  style.textContent = `.modal-backdrop{align-items:center;background:rgba(18,35,43,.42);display:flex;inset:0;justify-content:center;position:fixed;z-index:8}.modal-backdrop:not(.open){display:none}.node-modal,.admin-modal{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(18,35,43,.2);display:grid;gap:14px;max-width:420px;padding:24px;width:calc(100% - 32px)}.admin-modal{max-width:480px}.modal-heading{align-items:flex-start;display:flex;justify-content:space-between}.modal-close{background:none;border:0;color:#7f8d94;cursor:pointer;font-size:22px;line-height:1}.node-modal label,.admin-modal label{color:#66767e;display:grid;font-size:11px;gap:6px}.node-modal input,.node-modal select,.admin-modal input{border:1px solid #dce5e8;border-radius:6px;color:#25343c;font:12px var(--sans);padding:10px}.modal-actions{align-items:center;display:grid;gap:8px;grid-template-columns:auto 1fr auto auto;margin-top:8px}.delete-node{color:#d76b68}.danger-button{background:#fff;border:1px solid #f0cecd;border-radius:7px;color:#d76b68;cursor:pointer;font-size:11px;padding:9px 12px}.auth-hint{color:#99a5aa;font-size:10px;margin:0}.admin-form{display:grid;gap:12px}.admin-form[hidden]{display:none}.empty-state{color:#9ca8ad;font-size:12px;padding:25px 0;text-align:center}`;
   document.head.appendChild(style);
 }
 
@@ -133,6 +133,66 @@ function createNodeModal() {
   });
 }
 
+function getAdmin() {
+  return JSON.parse(localStorage.getItem('lora-admin') || 'null');
+}
+
+function saveAdmin(admin) {
+  localStorage.setItem('lora-admin', JSON.stringify(admin));
+}
+
+function updateAdminUi() {
+  const admin = getAdmin();
+  if (!admin) return;
+  const name = admin.name || '管理员';
+  document.querySelector('.profile strong').textContent = name;
+  document.querySelector('.user-button span:not(.avatar)').textContent = name;
+  document.querySelectorAll('.avatar').forEach((avatar) => { avatar.textContent = name.slice(0, 1); });
+  if (admin.project) {
+    document.querySelector('.breadcrumb strong').textContent = admin.project;
+    document.querySelector('.project-select strong').textContent = admin.project;
+  }
+}
+
+function openAdminModal() {
+  const modal = document.querySelector('#adminModal');
+  const admin = getAdmin();
+  if (admin) {
+    modal.querySelector('.auth-view').hidden = true;
+    modal.querySelector('.profile-view').hidden = false;
+    modal.querySelector('[name="profileName"]').value = admin.name;
+    modal.querySelector('[name="profileEmail"]').value = admin.email;
+    modal.querySelector('[name="profilePhone"]').value = admin.phone || '';
+    modal.querySelector('[name="profileProject"]').value = admin.project || '智慧农场试验区';
+  } else {
+    modal.querySelector('.auth-view').hidden = false;
+    modal.querySelector('.profile-view').hidden = true;
+  }
+  modal.classList.add('open');
+}
+
+function createAdminModal() {
+  const modal = document.createElement('div');
+  modal.id = 'adminModal';
+  modal.className = 'modal-backdrop';
+  modal.innerHTML = `<section class="admin-modal"><div class="modal-heading"><div><p class="kicker">LoRaSense 管理中心</p><h2>管理员账号</h2></div><button class="modal-close" type="button">×</button></div><div class="auth-view"><p class="auth-hint">首次使用请注册管理员账号，账号信息保存在当前浏览器。</p><form class="admin-form"><label>管理员姓名<input name="name" required minlength="2" placeholder="例如：李明远" /></label><label>邮箱地址<input name="email" type="email" required placeholder="admin@example.com" /></label><label>登录密码<input name="password" type="password" required minlength="6" placeholder="至少 6 位字符" /></label><button class="primary-button" type="submit">注册并进入系统</button></form></div><form class="profile-view admin-form" hidden><label>管理员姓名<input name="profileName" required minlength="2" /></label><label>联系邮箱<input name="profileEmail" type="email" required /></label><label>联系电话<input name="profilePhone" placeholder="可选" /></label><label>项目名称<input name="profileProject" required /></label><div class="modal-actions"><button class="danger-button" id="logoutButton" type="button">退出登录</button><span></span><button class="outline-button modal-close" type="button">取消</button><button class="primary-button" type="submit">保存信息</button></div></form></section>`;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('.modal-close').forEach((button) => button.addEventListener('click', () => modal.classList.remove('open')));
+  modal.querySelector('.admin-form:not(.profile-view)').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    saveAdmin({ name: data.get('name').trim(), email: data.get('email').trim(), password: data.get('password'), phone: '', project: '智慧农场试验区' });
+    modal.classList.remove('open'); updateAdminUi(); showToast('管理员注册成功，欢迎进入系统');
+  });
+  modal.querySelector('.profile-view').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    saveAdmin({ ...getAdmin(), name: data.get('profileName').trim(), email: data.get('profileEmail').trim(), phone: data.get('profilePhone').trim(), project: data.get('profileProject').trim() });
+    modal.classList.remove('open'); updateAdminUi(); showToast('管理员信息已保存');
+  });
+  modal.querySelector('#logoutButton').addEventListener('click', () => { localStorage.removeItem('lora-admin'); modal.classList.remove('open'); showToast('已退出管理员账号'); window.setTimeout(openAdminModal, 300); });
+}
+
 document.querySelector('#refreshButton').addEventListener('click', () => { simulateTelemetry(); showToast('已完成实时数据同步'); });
 document.querySelector('#exportButton').addEventListener('click', () => {
   const csv = ['节点编号,类型,区域,信号强度(dBm),电量(%),状态', ...state.nodes.map((node) => [node.id, node.type, node.area, node.signal, node.battery, node.status].join(','))].join('\n');
@@ -147,9 +207,15 @@ document.querySelectorAll('.range').forEach((button) => button.addEventListener(
 document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', () => { document.querySelector('.nav-item.active').classList.remove('active'); item.classList.add('active'); }));
 document.querySelector('.icon-button').addEventListener('click', () => document.querySelector('#alerts').scrollIntoView({ behavior: 'smooth' }));
 document.querySelector('.text-button').addEventListener('click', () => openNodeEditor(null));
+document.querySelector('.user-button').addEventListener('click', openAdminModal);
+document.querySelector('.profile').addEventListener('click', openAdminModal);
+document.querySelector('a[href="#settings"]').addEventListener('click', (event) => { event.preventDefault(); openAdminModal(); });
 
 addManagementStyles();
 createNodeModal();
+createAdminModal();
+updateAdminUi();
+if (!getAdmin()) window.setTimeout(openAdminModal, 250);
 renderNodes();
 renderAlerts();
 updateClock();
